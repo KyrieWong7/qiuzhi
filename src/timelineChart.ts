@@ -25,13 +25,13 @@ export function timelineSvg(events: TimelineEvent[]): string {
     months.push(item);
   });
 
-  const left = 132;
-  const gapW = 28;
+  const left = 148;
+  const gapW = 36;
   const colW = 108;
   const width = left + months.reduce((sum, item) => sum + ("gap" in item ? gapW : colW), 0) + 16;
   const names = [...new Set(events.map((event) => event.name))];
-  const rowH = 46;
-  const top = 28;
+  const rowH = 72;
+  const top = 36;
   const height = top + names.length * rowH + 36;
   const columns: Column[] = [];
   let x = left;
@@ -57,7 +57,7 @@ export function timelineSvg(events: TimelineEvent[]): string {
 
   const bars = events
     .map((event) => {
-      const y = top + names.indexOf(event.name) * rowH + 8;
+      const y = top + names.indexOf(event.name) * rowH + 16;
       const x1 = locate(event.start);
       const x2 = Math.max(locate(event.end) + 4, x1 + 3);
       const exam = event.type === "笔试" || event.type === "面试";
@@ -66,11 +66,11 @@ export function timelineSvg(events: TimelineEvent[]): string {
       const label = x2 - x1 > 36 ? event.type : "";
       const text =
         label === ""
-          ? `<text x="${x2 + 4}" y="${y + 14}" font-size="11" fill="${color}">${esc(event.type)}</text>`
-          : `<text x="${(x1 + x2) / 2}" y="${y + 13}" text-anchor="middle" font-size="11" fill="${dashed ? color : "#fff"}">${esc(label)}</text>`;
+          ? `<text x="${(x1 + x2) / 2}" y="${y - 6}" text-anchor="middle" font-size="13" fill="${color}">${esc(event.type)}</text>`
+          : `<text x="${(x1 + x2) / 2}" y="${y + 19}" text-anchor="middle" font-size="14" fill="${dashed ? color : "#fff"}">${esc(label)}</text>`;
       const rect = dashed
-        ? `<rect x="${x1}" y="${y}" width="${x2 - x1}" height="18" rx="2" fill="none" stroke="${color}" stroke-dasharray="3 2"/>`
-        : `<rect x="${x1}" y="${y}" width="${x2 - x1}" height="18" rx="2" fill="${color}"/>`;
+        ? `<rect x="${x1}" y="${y}" width="${x2 - x1}" height="28" rx="4" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="4 3"/>`
+        : `<rect x="${x1}" y="${y}" width="${x2 - x1}" height="28" rx="4" fill="${color}"/>`;
       return rect + text;
     })
     .join("");
@@ -78,14 +78,14 @@ export function timelineSvg(events: TimelineEvent[]): string {
   const heads = columns
     .map((column) => {
       if (column.kind === "gap") {
-        return `<text x="${column.x + column.width / 2}" y="${height - 8}" text-anchor="middle" font-size="10" fill="#8b97a3">空档</text>`;
+        return `<text x="${column.x + column.width / 2}" y="${height - 10}" text-anchor="middle" font-size="13" fill="#8b97a3">空档</text>`;
       }
       const name = column.month === 1 || column.month === 10 ? `${column.year}年${column.month}月` : `${column.month}月`;
-      return `<text x="${column.x + column.width / 2}" y="${height - 8}" text-anchor="middle" font-size="12" fill="#3e4c59">${name}</text>`;
+      return `<text x="${column.x + column.width / 2}" y="${height - 10}" text-anchor="middle" font-size="14" fill="#3e4c59">${name}</text>`;
     })
     .join("");
   const labels = names
-    .map((name, index) => `<text x="0" y="${top + index * rowH + 22}" font-size="13" fill="#1c2834">${esc(name)}</text>`)
+    .map((name, index) => `<text x="0" y="${top + index * rowH + 36}" font-size="16" fill="#1c2834">${esc(name)}</text>`)
     .join("");
   return `<svg class="chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="岗位时间线">${labels}${heads}${bars}</svg>`;
 }

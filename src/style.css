@@ -64,7 +64,8 @@ textarea { min-height: 72px; }
 .checks { display: flex; gap: 12px; flex-wrap: wrap; color: var(--ink); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
-.chart { width: 100%; overflow-x: auto; }
+.chart { width: 100%; height: auto; overflow-x: auto; }
+.timeline-chart .chart { width: 100%; height: auto; display: block; }
 .week, .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 .cal-head { display: grid; grid-template-columns: repeat(7, 1fr); color: var(--muted); font-size: 12px; text-align: center; margin-bottom: 6px; }
 .cal {

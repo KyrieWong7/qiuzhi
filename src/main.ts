@@ -193,9 +193,9 @@ function timelinePage(data: AppData): string {
     </div>
     <p class="sub">条的长短是天数。实心是已公布，虚线是对标去年，红色是笔试和面试。</p>
     <p id="timeline-msg" class="error"></p>
+    <section class="card timeline-chart">${timelineSvg(data.events)}</section>
     <div class="split">
-      <section class="card">${timelineSvg(data.events)}</section>
-      <aside class="card">
+      <section class="card">
         <h2>加一个节点</h2>
         ${chips(names, "exam-name")}
         <label>其他考试<input id="event-name" placeholder="不在上面就写在这里"/></label>
@@ -209,6 +209,8 @@ function timelinePage(data: AppData): string {
           <label>结束<input id="event-end" type="date" value="${today}"/></label>
         </div>
         <button class="btn primary" type="button" id="add-event">加到时间线</button>
+      </section>
+      <aside class="card">
         <h2>已有节点</h2>
         ${
           rows.length
