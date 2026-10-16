@@ -56,7 +56,7 @@ function paint(): void {
 }
 
 function bow(): string {
-  return `<svg class="bow" viewBox="0 0 22 16" aria-hidden="true"><path d="M11 8 C8 2 2 2 2 8 C2 14 8 14 11 8 C14 2 20 2 20 8 C20 14 14 14 11 8" fill="#f4a7c1"/><circle cx="11" cy="8" r="2" fill="#fff"/></svg>`;
+  return `<svg class="bow" viewBox="0 0 22 16" aria-hidden="true"><path d="M11 8 C8 2 2 2 2 8 C2 14 8 14 11 8 C14 2 20 2 20 8 C20 14 14 14 11 8" fill="#8ec8ea"/><circle cx="11" cy="8" r="2" fill="#fff"/></svg>`;
 }
 
 function body(data: AppData, page: string, arg: string, extra: string): string {

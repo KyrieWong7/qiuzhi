@@ -2,7 +2,7 @@
   --ink: #5c4652;
   --muted: #a18490;
   --line: #f3d5df;
-  --pink: #f4a7c1;
+  --pink: #6eb0dc;
   --blue: #8ec8ea;
   --yellow: #f6d98b;
   --cream: #fff8f4;
@@ -12,7 +12,7 @@
   font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(circle, #f8d5e2 1.1px, transparent 1.2px) 0 0 / 22px 22px,
+    radial-gradient(circle, #d4ebf8 1.1px, transparent 1.2px) 0 0 / 22px 22px,
     var(--cream);
 }
 
@@ -77,10 +77,10 @@ th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line
 }
 .cal.empty { background: transparent; border-color: transparent; }
 .cal.selected { outline: 2px solid var(--pink); }
-.cal.today { background: #fff1f6; }
+.cal.today { background: #eef7fc; }
 .dots { display: flex; gap: 3px; margin-top: 6px; }
 .dot { width: 8px; height: 8px; border-radius: 99px; display: inline-block; }
-.dot.行测 { background: var(--pink); }
+.dot.行测 { background: #f4a7c1; }
 .dot.申论 { background: var(--blue); }
 .dot.面试 { background: var(--yellow); }
 .day {
@@ -90,10 +90,10 @@ th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line
   min-height: 92px;
   background: white;
 }
-.day button.link, button.link { border: 0; background: transparent; padding: 0; color: #d46b8c; }
+.day button.link, button.link { border: 0; background: transparent; padding: 0; color: #4d94c4; }
 .task { display: flex; gap: 6px; align-items: flex-start; font-size: 13px; margin-top: 6px; }
 .done { text-decoration: line-through; color: var(--muted); }
-.stat { font-size: 28px; font-weight: 600; color: #d46b8c; }
+.stat { font-size: 28px; font-weight: 600; color: #4d94c4; }
 .muted { color: var(--muted); font-size: 13px; }
 .error { color: var(--red); font-size: 13px; }
 .gallery { display: flex; gap: 8px; flex-wrap: wrap; }
