@@ -6,26 +6,34 @@ const KEY = "qiuzhi-v1";
 
 export function load(): AppData {
   const raw = localStorage.getItem(KEY);
+  const base = freshData();
   if (!raw) {
-    const data = freshData();
-    localStorage.setItem(KEY, JSON.stringify(data));
-    return data;
+    localStorage.setItem(KEY, JSON.stringify(base));
+    return base;
   }
-  const parsed = JSON.parse(raw) as AppData;
-  return {
-    ...freshData(),
-    ...parsed,
-    profile: { ...freshData().profile, ...parsed.profile },
-    resume: parsed.resume ?? [],
-    events: parsed.events ?? [],
-    months: parsed.months ?? [],
-    tasks: parsed.tasks ?? [],
-    scores: parsed.scores ?? [],
-  };
+  try {
+    const parsed = JSON.parse(raw) as Partial<AppData>;
+    return {
+      ...base,
+      ...parsed,
+      profile: { ...base.profile, ...(parsed.profile ?? {}) },
+      resume: parsed.resume ?? [],
+      events: parsed.events ?? base.events,
+      months: parsed.months ?? [],
+      tasks: parsed.tasks ?? [],
+      scores: parsed.scores ?? [],
+    };
+  } catch {
+    return base;
+  }
 }
 
 export function save(data: AppData): void {
-  localStorage.setItem(KEY, JSON.stringify(data));
+  try {
+    localStorage.setItem(KEY, JSON.stringify(data));
+  } catch {
+    throw new Error("没有存上，浏览器里的空间可能满了");
+  }
 }
 
 export function uid(): string {

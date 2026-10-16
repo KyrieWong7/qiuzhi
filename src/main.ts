@@ -44,7 +44,7 @@ function paint(): void {
   const active = page === "scores" || page === "board" ? "study" : page;
   app!.innerHTML = `
     <header class="top">
-      <div class="brand">${bow()}RUO的求职系统</div>
+      <button class="brand" type="button" data-go="home">${bow()}RUO的求职系统</button>
       <nav class="nav">${pages
         .map(([id, label]) => `<button data-go="${id}" class="${active === id ? "active" : ""}">${label}</button>`)
         .join("")}</nav>
@@ -56,6 +56,10 @@ function paint(): void {
     };
   });
   bind(data, page, arg, extra);
+}
+
+function commit(update: (data: AppData) => AppData): void {
+  save(update(load()));
 }
 
 function bow(): string {
@@ -137,13 +141,14 @@ function profilePage(data: AppData): string {
       ${field("hukou", "户籍", profile.hukou)}
       ${field("english", "英语", profile.english)}
       ${field("cities", "目标城市", profile.cities)}
-      <label>求职方向
+      <div>
+        <span class="muted">求职方向</span>
         <span class="checks">${TRACKS.map(
           (track) =>
             `<label><input type="checkbox" name="track" value="${track}" ${profile.tracks.includes(track) ? "checked" : ""}/> ${track}</label>`,
         ).join("")}</span>
-      </label>
-      <div class="row"><button class="btn primary" type="submit">保存资料</button></div>
+      </div>
+      <p id="profile-msg" class="muted">改完会自动保存。</p>
     </form>
     <section class="card">
       <h2>简历条目</h2>
@@ -153,7 +158,7 @@ function profilePage(data: AppData): string {
         <label>标题<input name="title" required/></label>
         <label>说明<input name="detail"/></label>
         <label>奖项或证明图片<input name="image" type="file" accept="image/*"/></label>
-        <div class="row"><button class="btn primary" type="submit">添加</button></div>
+        <div class="row"><button class="btn primary" id="resume-save" type="submit">添加</button></div>
         <p id="resume-msg" class="error"></p>
       </form>
       <table>
@@ -165,7 +170,7 @@ function profilePage(data: AppData): string {
                   (item) => `<tr>
                     <td>${item.image ? `<img class="thumb" src="${item.image}" alt=""/>` : ""}</td>
                     <td>${esc(item.kind)}</td><td>${esc(item.time)}</td><td>${esc(item.title)}</td><td>${esc(item.detail)}</td>
-                    <td><button class="btn danger" data-del-resume="${item.id}">删除</button></td>
+                    <td><button class="btn" type="button" data-edit-resume="${item.id}">修改</button> <button class="btn danger" data-del-resume="${item.id}">删除</button></td>
                   </tr>`,
                 )
                 .join("")
@@ -216,7 +221,7 @@ function timelinePage(data: AppData): string {
           rows.length
             ? rows
                 .map(
-                  (event) => `<div class="score-line"><span>${esc(event.start.slice(5))} ${esc(event.name)} ${esc(event.type)} ${esc(event.status)}</span><button class="btn danger" data-del-event="${event.id}">删除</button></div>`,
+                  (event) => `<div class="score-line"><button class="link" type="button" data-edit-event="${event.id}">${esc(event.start.slice(5))} ${esc(event.name)} ${esc(event.type)} ${esc(event.status)}</button><button class="btn danger" data-del-event="${event.id}">删除</button></div>`,
                 )
                 .join("")
             : `<p class="muted">还没有考试节点。</p>`
@@ -358,7 +363,7 @@ function studyPage(data: AppData): string {
             ? [...data.scores]
                 .sort((a, b) => b.date.localeCompare(a.date))
                 .map(
-                  (item) => `<div class="score-line"><span>${esc(item.date)} ${esc(item.kind)} ${esc(item.subject)} ${esc(item.module)}</span><span>${item.score}/${item.full} <button class="btn danger" data-del-score="${item.id}">删除</button></span></div>`,
+                  (item) => `<div class="score-line"><button class="link" type="button" data-edit-score="${item.id}">${esc(item.date)} ${esc(item.kind)} ${esc(item.subject)} ${esc(item.module)}</button><span>${item.score}/${item.full} <button class="btn danger" data-del-score="${item.id}">删除</button></span></div>`,
                 )
                 .join("")
             : `<p class="muted">还没有分数。</p>`
@@ -436,61 +441,93 @@ function bind(data: AppData, page: string, arg: string, extra: string): void {
   if (page === "study" || page === "scores" || page === "board") bindScores(data);
 }
 
-function bindProfile(data: AppData): void {
-  document.querySelector<HTMLFormElement>("#profile")!.onsubmit = (event) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget as HTMLFormElement);
-    const tracks = form.getAll("track").map(String);
-    save({
-      ...data,
-      profile: {
-        ...data.profile,
-        name: String(form.get("name") ?? ""),
-        gender: String(form.get("gender") ?? ""),
-        politics: String(form.get("politics") ?? ""),
-        undergradSchool: String(form.get("undergradSchool") ?? ""),
-        undergradMajor: String(form.get("undergradMajor") ?? ""),
-        gradSchool: String(form.get("gradSchool") ?? ""),
-        gradMajor: String(form.get("gradMajor") ?? ""),
-        gradYear: String(form.get("gradYear") ?? ""),
-        hukou: String(form.get("hukou") ?? ""),
-        english: String(form.get("english") ?? ""),
-        cities: String(form.get("cities") ?? ""),
-        tracks,
-      },
-    });
-    paint();
+function profileFrom(form: HTMLFormElement, data: AppData): AppData {
+  const body = new FormData(form);
+  return {
+    ...data,
+    profile: {
+      ...data.profile,
+      name: String(body.get("name") ?? ""),
+      gender: String(body.get("gender") ?? ""),
+      politics: String(body.get("politics") ?? ""),
+      undergradSchool: String(body.get("undergradSchool") ?? ""),
+      undergradMajor: String(body.get("undergradMajor") ?? ""),
+      gradSchool: String(body.get("gradSchool") ?? ""),
+      gradMajor: String(body.get("gradMajor") ?? ""),
+      gradYear: String(body.get("gradYear") ?? ""),
+      hukou: String(body.get("hukou") ?? ""),
+      english: String(body.get("english") ?? ""),
+      cities: String(body.get("cities") ?? ""),
+      tracks: body.getAll("track").map(String),
+    },
   };
-  document.querySelector<HTMLFormElement>("#resume")!.onsubmit = async (event) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget as HTMLFormElement);
-    const file = form.get("image");
-    let image = "";
+}
+
+function bindProfile(data: AppData): void {
+  const form = document.querySelector<HTMLFormElement>("#profile")!;
+  const persist = () => {
+    const message = document.querySelector<HTMLElement>("#profile-msg");
     try {
+      commit((current) => profileFrom(form, current));
+      if (message) message.textContent = "已保存";
+    } catch (error) {
+      if (message) message.textContent = error instanceof Error ? error.message : "没有存上";
+    }
+  };
+  form.addEventListener("input", persist);
+  form.addEventListener("change", persist);
+  form.onsubmit = (event) => {
+    event.preventDefault();
+    persist();
+  };
+  const resumeForm = document.querySelector<HTMLFormElement>("#resume")!;
+  const resumeButton = document.querySelector<HTMLButtonElement>("#resume-save")!;
+  let editingResume = "";
+  document.querySelectorAll<HTMLButtonElement>("[data-edit-resume]").forEach((button) => {
+    button.onclick = () => {
+      const item = data.resume.find((row) => row.id === button.dataset.editResume);
+      if (!item) return;
+      editingResume = item.id;
+      (resumeForm.elements.namedItem("kind") as HTMLSelectElement).value = item.kind;
+      (resumeForm.elements.namedItem("time") as HTMLInputElement).value = item.time;
+      (resumeForm.elements.namedItem("title") as HTMLInputElement).value = item.title;
+      (resumeForm.elements.namedItem("detail") as HTMLInputElement).value = item.detail;
+      resumeButton.textContent = "保存修改";
+    };
+  });
+  resumeForm.onsubmit = async (event) => {
+    event.preventDefault();
+    const body = new FormData(resumeForm);
+    const file = body.get("image");
+    const message = document.querySelector<HTMLElement>("#resume-msg");
+    try {
+      let image = "";
       if (file instanceof File && file.size > 0) image = await compressImage(file);
-      save({
-        ...data,
-        resume: [
-          ...data.resume,
-          {
-            id: uid(),
-            kind: String(form.get("kind")) as ResumeKind,
-            time: String(form.get("time") ?? ""),
-            title: String(form.get("title") ?? ""),
-            detail: String(form.get("detail") ?? ""),
-            image,
-          },
-        ],
+      const title = String(body.get("title") ?? "").trim();
+      if (!title) return;
+      commit((current) => {
+        const previous = current.resume.find((row) => row.id === editingResume);
+        const next = {
+          id: editingResume || uid(),
+          kind: String(body.get("kind")) as ResumeKind,
+          time: String(body.get("time") ?? ""),
+          title,
+          detail: String(body.get("detail") ?? ""),
+          image: image || previous?.image || "",
+        };
+        const resume = editingResume
+          ? current.resume.map((row) => (row.id === editingResume ? next : row))
+          : [...current.resume, next];
+        return { ...current, resume };
       });
       paint();
     } catch (error) {
-      const message = document.querySelector<HTMLElement>("#resume-msg");
       if (message) message.textContent = error instanceof Error ? error.message : "图片没有存上，换一张小一点的试试";
     }
   };
   document.querySelectorAll<HTMLButtonElement>("[data-del-resume]").forEach((button) => {
     button.onclick = () => {
-      save({ ...data, resume: data.resume.filter((item) => item.id !== button.dataset.delResume) });
+      commit((current) => ({ ...current, resume: current.resume.filter((item) => item.id !== button.dataset.delResume) }));
       paint();
     };
   });
@@ -522,39 +559,61 @@ function bindTimeline(data: AppData): void {
   pick("[data-exam-type]", "examType", (value) => (type = value as EventType), type);
   pick("[data-exam-status]", "examStatus", (value) => (status = value as EventStatus), status);
   pick("[data-exam-place]", "examPlace", (value) => (place = value), place);
-  document.querySelector<HTMLButtonElement>("#add-event")!.onclick = () => {
+  let editingEvent = "";
+  const addEvent = document.querySelector<HTMLButtonElement>("#add-event")!;
+  document.querySelectorAll<HTMLButtonElement>("[data-edit-event]").forEach((button) => {
+    button.onclick = () => {
+      const item = data.events.find((event) => event.id === button.dataset.editEvent);
+      if (!item) return;
+      editingEvent = item.id;
+      name = item.name;
+      identity = item.identity;
+      type = item.type;
+      status = item.status;
+      place = item.place;
+      mark("[data-exam-name]", name, "examName");
+      mark("[data-exam-identity]", identity, "examIdentity");
+      mark("[data-exam-type]", type, "examType");
+      mark("[data-exam-status]", status, "examStatus");
+      mark("[data-exam-place]", place, "examPlace");
+      document.querySelector<HTMLInputElement>("#event-name")!.value = "";
+      document.querySelector<HTMLInputElement>("#event-place")!.value = "";
+      document.querySelector<HTMLInputElement>("#event-start")!.value = item.start;
+      document.querySelector<HTMLInputElement>("#event-end")!.value = item.end;
+      addEvent.textContent = "保存修改";
+    };
+  });
+  addEvent.onclick = () => {
     const customName = document.querySelector<HTMLInputElement>("#event-name")!.value.trim();
     const customPlace = document.querySelector<HTMLInputElement>("#event-place")!.value.trim();
     const start = document.querySelector<HTMLInputElement>("#event-start")!.value;
     const end = document.querySelector<HTMLInputElement>("#event-end")!.value || start;
     if (!start) return;
-    save({
-      ...data,
-      events: [
-        ...data.events,
-        {
-          id: uid(),
-          name: customName || name,
-          identity,
-          place: customPlace || place,
-          type,
-          status,
-          start,
-          end: end < start ? start : end,
-        },
-      ],
-    });
+    const next = {
+      id: editingEvent || uid(),
+      name: customName || name,
+      identity,
+      place: customPlace || place,
+      type,
+      status,
+      start,
+      end: end < start ? start : end,
+    };
+    commit((current) => ({
+      ...current,
+      events: editingEvent ? current.events.map((event) => (event.id === editingEvent ? next : event)) : [...current.events, next],
+    }));
     paint();
   };
   document.querySelectorAll<HTMLButtonElement>("[data-del-event]").forEach((button) => {
     button.onclick = () => {
-      save({ ...data, events: data.events.filter((item) => item.id !== button.dataset.delEvent) });
+      commit((current) => ({ ...current, events: current.events.filter((item) => item.id !== button.dataset.delEvent) }));
       paint();
     };
   });
   document.querySelector<HTMLButtonElement>("#export-timeline")!.onclick = () =>
     download("时间线.json", exportTimeline(data));
-  wireImport("#import-timeline", "#timeline-file", "#timeline-msg", data);
+  wireImport("#import-timeline", "#timeline-file", "#timeline-msg");
 }
 
 function bindPlan(data: AppData, arg: string, extra: string): void {
@@ -612,20 +671,22 @@ function bindPlan(data: AppData, arg: string, extra: string): void {
     button.onclick = () => {
       const name = button.dataset.subject as Subject;
       const hours = Number(button.dataset.hours);
-      const next = ensureMonth(data, year, month);
-      save({
-        ...next,
-        months: next.months.map((item) =>
-          item.year === year && item.month === month
-            ? { ...item, goals: item.goals.map((goal) => (goal.subject === name ? { ...goal, targetHours: hours } : goal)) }
-            : item,
-        ),
+      commit((current) => {
+        const next = ensureMonth(current, year, month);
+        return {
+          ...next,
+          months: next.months.map((item) =>
+            item.year === year && item.month === month
+              ? { ...item, goals: item.goals.map((goal) => (goal.subject === name ? { ...goal, targetHours: hours } : goal)) }
+              : item,
+          ),
+        };
       });
       paint();
     };
   });
   document.querySelector<HTMLButtonElement>("#split-week")!.onclick = () => {
-    const next = ensureMonth(data, year, month);
+    const next = ensureMonth(load(), year, month);
     const plan = monthPlan(next, year, month);
     const days = [0, 1, 2, 3, 4].map((offset) => addDays(weekDates(focus)[0], offset));
     const created = plan.goals
@@ -641,45 +702,51 @@ function bindPlan(data: AppData, arg: string, extra: string): void {
           done: false,
         })),
       );
-    save({ ...next, tasks: [...next.tasks, ...created] });
+    commit((current) => {
+      const base = ensureMonth(current, year, month);
+      return { ...base, tasks: [...base.tasks, ...created] };
+    });
     paint();
   };
   document.querySelector<HTMLButtonElement>("#add-task")!.onclick = () => {
-    save({
-      ...ensureMonth(data, year, month),
-      tasks: [
-        ...data.tasks,
-        {
-          id: uid(),
-          date: focus,
-          subject: pickedSubject,
-          module: pickedModule,
-          title: `${pickedModule}练习`,
-          minutes: pickedMinutes,
-          done: false,
-        },
-      ],
+    commit((current) => {
+      const next = ensureMonth(current, year, month);
+      return {
+        ...next,
+        tasks: [
+          ...next.tasks,
+          {
+            id: uid(),
+            date: focus,
+            subject: pickedSubject,
+            module: pickedModule,
+            title: `${pickedModule}练习`,
+            minutes: pickedMinutes,
+            done: false,
+          },
+        ],
+      };
     });
     paint();
   };
   document.querySelectorAll<HTMLInputElement>("[data-task]").forEach((box) => {
     box.onchange = () => {
-      save({
-        ...data,
-        tasks: data.tasks.map((task) => (task.id === box.dataset.task ? { ...task, done: box.checked } : task)),
-      });
+      commit((current) => ({
+        ...current,
+        tasks: current.tasks.map((task) => (task.id === box.dataset.task ? { ...task, done: box.checked } : task)),
+      }));
       paint();
     };
   });
   document.querySelectorAll<HTMLButtonElement>("[data-del-task]").forEach((button) => {
     button.onclick = () => {
-      save({ ...data, tasks: data.tasks.filter((task) => task.id !== button.dataset.delTask) });
+      commit((current) => ({ ...current, tasks: current.tasks.filter((task) => task.id !== button.dataset.delTask) }));
       paint();
     };
   });
   document.querySelector<HTMLButtonElement>("#export-plan")!.onclick = () =>
     download(`计划-${monthKey(year, month)}.json`, exportPlan(data, year, month));
-  wireImport("#import-plan", "#plan-file", "#plan-msg", data);
+  wireImport("#import-plan", "#plan-file", "#plan-msg");
 }
 
 function bindScores(data: AppData): void {
@@ -721,19 +788,47 @@ function bindScores(data: AppData): void {
   mark("[data-score-kind]", kind, "scoreKind");
   mark("[data-score-subject]", subject, "scoreSubject");
   drawModules();
-  document.querySelector<HTMLButtonElement>("#save-score")!.onclick = () => {
+  let editingScore = "";
+  const saveScore = document.querySelector<HTMLButtonElement>("#save-score")!;
+  document.querySelectorAll<HTMLButtonElement>("[data-edit-score]").forEach((button) => {
+    button.onclick = () => {
+      const item = data.scores.find((row) => row.id === button.dataset.editScore);
+      if (!item) return;
+      editingScore = item.id;
+      kind = item.kind;
+      subject = item.subject;
+      moduleName = item.module;
+      mark("[data-score-kind]", kind, "scoreKind");
+      mark("[data-score-subject]", subject, "scoreSubject");
+      drawModules();
+      document.querySelector<HTMLInputElement>("#score-value")!.value = String(item.score);
+      document.querySelector<HTMLInputElement>("#score-full")!.value = String(item.full);
+      saveScore.textContent = "保存修改";
+    };
+  });
+  saveScore.onclick = () => {
     const score = Number(document.querySelector<HTMLInputElement>("#score-value")!.value);
     const full = Number(document.querySelector<HTMLInputElement>("#score-full")!.value || 100);
     if (!Number.isFinite(score) || !Number.isFinite(full) || full <= 0) return;
-    save({
-      ...data,
-      scores: [...data.scores, { id: uid(), date: isoDate(new Date()), kind, subject, module: moduleName, score, full, minutes: 0 }],
-    });
+    const next = {
+      id: editingScore || uid(),
+      date: data.scores.find((row) => row.id === editingScore)?.date ?? isoDate(new Date()),
+      kind,
+      subject,
+      module: moduleName,
+      score,
+      full,
+      minutes: data.scores.find((row) => row.id === editingScore)?.minutes ?? 0,
+    };
+    commit((current) => ({
+      ...current,
+      scores: editingScore ? current.scores.map((row) => (row.id === editingScore ? { ...next, date: row.date, minutes: row.minutes } : row)) : [...current.scores, next],
+    }));
     paint();
   };
   document.querySelectorAll<HTMLButtonElement>("[data-del-score]").forEach((button) => {
     button.onclick = () => {
-      save({ ...data, scores: data.scores.filter((item) => item.id !== button.dataset.delScore) });
+      commit((current) => ({ ...current, scores: current.scores.filter((item) => item.id !== button.dataset.delScore) }));
       paint();
     };
   });
@@ -748,7 +843,7 @@ function download(filename: string, payload: unknown): void {
   URL.revokeObjectURL(link.href);
 }
 
-function wireImport(buttonId: string, fileId: string, messageId: string, data: AppData): void {
+function wireImport(buttonId: string, fileId: string, messageId: string): void {
   const button = document.querySelector<HTMLButtonElement>(buttonId);
   const file = document.querySelector<HTMLInputElement>(fileId);
   const message = document.querySelector<HTMLElement>(messageId);
@@ -759,7 +854,7 @@ function wireImport(buttonId: string, fileId: string, messageId: string, data: A
     if (!picked) return;
     try {
       const parsed = JSON.parse(await picked.text()) as unknown;
-      save(importBundle(data, parsed));
+      commit((current) => importBundle(current, parsed));
       paint();
     } catch (error) {
       message.textContent = error instanceof Error ? error.message : "导入失败";
@@ -767,5 +862,6 @@ function wireImport(buttonId: string, fileId: string, messageId: string, data: A
   };
 }
 
+history.replaceState(null, "", `${location.pathname}${location.search}#home`);
 window.addEventListener("hashchange", paint);
 paint();
