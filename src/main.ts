@@ -1,5 +1,5 @@
 import "./style.css";
-import { addDays, daysInMonth, inMonth, isoDate, monthKey, pad, parseMonthKey, weekDates, weekdayLabel, weeksInMonth } from "./dates";
+import { addDays, daysInMonth, inMonth, isoDate, monthKey, pad, parseMonthKey, weekDates } from "./dates";
 import { esc } from "./escape";
 import { compressImage } from "./image";
 import { ensureMonth, exportPlan, exportTimeline, importBundle, load, monthPlan, save, uid } from "./store";
@@ -216,84 +216,47 @@ function planPage(data: AppData, arg: string, extra: string): string {
   const { year, month } = parseMonthKey(current);
   const focus = extra || today;
   const plan = monthPlan(data, year, month);
-  const weeks = weeksInMonth(year, month);
-  const weekStart = weekDates(focus)[0];
   const days = weekDates(focus);
   const monthTasks = data.tasks.filter((task) => inMonth(task.date, year, month));
   const doneHours = monthTasks.filter((task) => task.done).reduce((sum, task) => sum + task.minutes, 0) / 60;
   const target = plan.goals.reduce((sum, goal) => sum + goal.targetHours, 0);
+  const weekRate = rate(data.tasks.filter((task) => days.includes(task.date)));
   return `
-    <h1>${year}年${month}月计划</h1>
-    <p class="sub">行测、申论、面试的月目标会落到周和日。勾选日后，月课时和周完成率一起变。</p>
     <div class="row">
+      <h1>${year}年${month}月</h1>
       <label>月份<input id="month-pick" type="month" value="${monthKey(year, month)}"/></label>
-      <button class="btn" id="export-plan" type="button">导出本月计划</button>
-      <button class="btn" id="import-plan" type="button">导入计划</button>
+      <button class="btn" id="export-plan" type="button">导出</button>
+      <button class="btn" id="import-plan" type="button">导入</button>
       <input id="plan-file" type="file" accept="application/json" hidden/>
     </div>
+    <p class="sub">本月 ${doneHours.toFixed(1)} / ${target} 小时 · 本周 ${weekRate}。深蓝点是行测，浅蓝点是申论，黄点是面试。</p>
     <p id="plan-msg" class="error"></p>
-    <section class="card">
-      <h2>月目标</h2>
-      <p class="muted">已完成 ${doneHours.toFixed(1)} / ${target} 小时</p>
-      <form id="goals">
+    <div class="split">
+      <section class="card">
+        ${calendar(data, year, month, focus)}
+      </section>
+      <aside class="card">
+        <h2>${focus.slice(5)} 的任务</h2>
+        ${dayTaskList(data, focus)}
+        <h2>加上一项</h2>
+        <div class="chips" id="subject-chips">${SUBJECTS.map((subject) => `<button type="button" class="btn" data-pick-subject="${subject}">${subject}</button>`).join("")}</div>
+        <div class="chips" id="module-chips"></div>
+        <div class="chips">${[20, 40, 60].map((minutes) => `<button type="button" class="btn" data-pick-minutes="${minutes}">${minutes}分钟</button>`).join("")}</div>
+        <button class="btn primary" type="button" id="add-task">加到这一天</button>
+        <h2>月目标</h2>
         ${plan.goals
           .map(
-            (goal) => `<div class="grid">
-              <strong>${goal.subject}</strong>
-              <label>目标课时<input name="hours-${goal.subject}" type="number" min="0" step="0.5" value="${goal.targetHours}"/></label>
-              <label>说明<input name="note-${goal.subject}" value="${esc(goal.note)}"/></label>
-            </div>`,
+            (goal) => `<div class="row"><span>${goal.subject}</span>${[2, 4, 8, 12]
+              .map(
+                (hours) =>
+                  `<button type="button" class="btn ${goal.targetHours === hours ? "primary" : ""}" data-hours="${hours}" data-subject="${goal.subject}">${hours}</button>`,
+              )
+              .join("")}</div>`,
           )
           .join("")}
-        <div class="row">
-          <button class="btn primary" type="submit">保存月目标</button>
-          <button class="btn" type="button" id="split-week">把目标拆到本周工作日</button>
-        </div>
-      </form>
-    </section>
-    <section class="card">
-      <h2>月历</h2>
-      <p class="muted">粉点是行测，蓝点是申论，黄点是面试。点日期看当天任务。</p>
-      ${calendar(data, year, month, focus)}
-      <div class="row" style="margin-top:10px">${weeks
-        .map(
-          (start) =>
-            `<button class="btn ${start === weekStart ? "primary" : ""}" data-week="${start}">${start.slice(5)} 那周</button>`,
-        )
-        .join("")}</div>
-    </section>
-    <section class="card">
-      <h2>一周 · ${weekStart}</h2>
-      <p class="muted">本周完成 ${rate(data.tasks.filter((task) => days.includes(task.date)))}</p>
-      <div class="week">${days
-        .map((date) => {
-          const tasks = data.tasks.filter((task) => task.date === date);
-          return `<div class="day">
-            <button class="link" data-day="${date}">周${weekdayLabel(date)} ${date.slice(8)}</button>
-            ${tasks
-              .map(
-                (task) => `<label class="task ${task.done ? "done" : ""}">
-                  <input type="checkbox" data-task="${task.id}" ${task.done ? "checked" : ""}/>
-                  ${esc(task.subject)} ${esc(task.module)} ${esc(task.title)} ${task.minutes}分钟
-                </label>`,
-              )
-              .join("")}
-          </div>`;
-        })
-        .join("")}</div>
-    </section>
-    <section class="card">
-      <h2>${focus} 的任务</h2>
-      <form id="task" class="grid">
-        <input type="hidden" name="date" value="${focus}"/>
-        <label>科目<select name="subject" id="task-subject">${SUBJECTS.map((subject) => `<option>${subject}</option>`).join("")}</select></label>
-        <label>模块<select name="module" id="task-module">${MODULES.行测.map((item) => `<option>${item}</option>`).join("")}</select></label>
-        <label>内容<input name="title" required placeholder="言语 20 题"/></label>
-        <label>分钟<input name="minutes" type="number" min="10" value="40"/></label>
-        <div class="row"><button class="btn primary">加到这一天</button></div>
-      </form>
-      ${dayTaskList(data, focus)}
-    </section>`;
+        <button class="btn" type="button" id="split-week">拆到本周工作日</button>
+      </aside>
+    </div>`;
 }
 
 function calendar(data: AppData, year: number, month: number, focus: string): string {
@@ -318,7 +281,7 @@ function dayTaskList(data: AppData, date: string): string {
   return tasks
     .map(
       (task) => `<div class="row">
-        <span class="${task.done ? "done" : ""}">${esc(task.subject)} / ${esc(task.module)} / ${esc(task.title)}</span>
+        <label class="task ${task.done ? "done" : ""}"><input type="checkbox" data-task="${task.id}" ${task.done ? "checked" : ""}/> ${esc(task.subject)} ${esc(task.module)} ${task.minutes}分钟</label>
         <button class="btn danger" data-del-task="${task.id}">删除</button>
       </div>`,
     )
@@ -348,33 +311,32 @@ function scorePage(data: AppData): string {
         (item) => `<section class="card"><h2>${item.subject}</h2><div class="stat">${item.latest ? `${item.latest.score}/${item.latest.full}` : "—"}</div><p class="muted">最近一次 · 本月平均 ${item.average ? Math.round(item.average * 100) + "%" : "还没有"}</p></section>`,
       )
       .join("")}</div>
-    <form id="score" class="card grid">
-      <label>日期<input name="date" type="date" value="${isoDate(new Date())}" required/></label>
-      <label>类型<select name="kind"><option>模考</option><option>练习</option></select></label>
-      <label>科目<select name="subject" id="score-subject">${SUBJECTS.map((subject) => `<option>${subject}</option>`).join("")}</select></label>
-      <label>模块<select name="module" id="score-module">${MODULES.行测.map((item) => `<option>${item}</option>`).join("")}</select></label>
-      <label>得分<input name="score" type="number" min="0" step="0.1" required/></label>
-      <label>满分<input name="full" type="number" min="1" step="0.1" value="100" required/></label>
-      <label>用时（分钟）<input name="minutes" type="number" min="0" value="0"/></label>
-      <div class="row"><button class="btn primary">记下这次</button></div>
-    </form>
-    <table>
-      <thead><tr><th>日期</th><th>类型</th><th>科目</th><th>模块</th><th>分数</th><th></th></tr></thead>
-      <tbody>${
-        data.scores.length
-          ? [...data.scores]
-              .sort((a, b) => b.date.localeCompare(a.date))
-              .map(
-                (item) => `<tr>
-                  <td>${esc(item.date)}</td><td>${esc(item.kind)}</td><td>${esc(item.subject)}</td>
-                  <td>${esc(item.module)}</td><td>${item.score}/${item.full}</td>
-                  <td><button class="btn danger" data-del-score="${item.id}">删除</button></td>
-                </tr>`,
-              )
-              .join("")
-          : `<tr><td colspan="6" class="muted">还没有分数。</td></tr>`
-      }</tbody>
-    </table>`;
+    <div class="split">
+      <section class="card">
+        <h2>分数</h2>
+        ${
+          data.scores.length
+            ? [...data.scores]
+                .sort((a, b) => b.date.localeCompare(a.date))
+                .map(
+                  (item) => `<div class="score-line"><span>${esc(item.date)} ${esc(item.kind)} ${esc(item.subject)} ${esc(item.module)}</span><span>${item.score}/${item.full} <button class="btn danger" data-del-score="${item.id}">删除</button></span></div>`,
+                )
+                .join("")
+            : `<p class="muted">还没有分数。</p>`
+        }
+      </section>
+      <aside class="card">
+        <h2>记一笔</h2>
+        <div class="chips" id="score-kind">${(["模考", "练习"] as const).map((kind) => `<button type="button" class="btn" data-score-kind="${kind}">${kind}</button>`).join("")}</div>
+        <div class="chips" id="score-subject">${SUBJECTS.map((subject) => `<button type="button" class="btn" data-score-subject="${subject}">${subject}</button>`).join("")}</div>
+        <div class="chips" id="score-module"></div>
+        <div class="row">
+          <label>得分<input id="score-value" type="number" min="0" step="0.1"/></label>
+          <label>满分<input id="score-full" type="number" min="1" step="0.1" value="100"/></label>
+        </div>
+        <button class="btn primary" type="button" id="save-score">记下</button>
+      </aside>
+    </div>`;
 }
 
 function boardPage(data: AppData): string {
@@ -388,17 +350,18 @@ function boardPage(data: AppData): string {
   const done = tasks.filter((task) => task.done).length;
   return `
     <h1>学习效果</h1>
-    <p class="sub">看分数变化，以及最近练习里相对低的模块。</p>
-    <div class="card"><div class="stat">${tasks.length ? Math.round((done / tasks.length) * 100) : 0}%</div><div class="muted">本月任务完成率 ${done}/${tasks.length}</div></div>
-    ${bySubject
-      .map(
-        (group) => `<section class="card"><h2>${group.subject}分数</h2>${
-          group.rows.length ? lineChart(group.rows.map((item) => item.score / item.full), group.rows.map((item) => item.date.slice(5))) : `<p class="muted">还没有${group.subject}分数。</p>`
-        }</section>`,
-      )
-      .join("")}
+    <div class="panels">
+      <section class="card"><div class="stat">${tasks.length ? Math.round((done / tasks.length) * 100) : 0}%</div><div class="muted">本月完成 ${done}/${tasks.length}</div></section>
+      ${bySubject
+        .map(
+          (group) => `<section class="card"><h2>${group.subject}</h2>${
+            group.rows.length ? lineChart(group.rows.map((item) => item.score / item.full), group.rows.map((item) => item.date.slice(5))) : `<p class="muted">还没有分数。</p>`
+          }</section>`,
+        )
+        .join("")}
+    </div>
     <section class="card">
-      <h2>相对低的模块</h2>
+      <h2>模块得分率</h2>
       ${
         weak.length
           ? `<ol>${weak
@@ -570,40 +533,65 @@ function bindPlan(data: AppData, arg: string, extra: string): void {
   document.querySelector<HTMLInputElement>("#month-pick")!.onchange = (event) => {
     location.hash = `plan/${(event.currentTarget as HTMLInputElement).value}`;
   };
-  document.querySelectorAll<HTMLButtonElement>("[data-week]").forEach((button) => {
-    button.onclick = () => {
-      location.hash = `plan/${monthKey(year, month)}/${button.dataset.week}`;
-    };
-  });
   document.querySelectorAll<HTMLButtonElement>("[data-day]").forEach((button) => {
     button.onclick = () => {
       location.hash = `plan/${monthKey(year, month)}/${button.dataset.day}`;
     };
   });
-  const subject = document.querySelector<HTMLSelectElement>("#task-subject")!;
-  const moduleSelect = document.querySelector<HTMLSelectElement>("#task-module")!;
-  subject.onchange = () => fillModules(moduleSelect, subject.value as Subject);
-  document.querySelector<HTMLFormElement>("#goals")!.onsubmit = (event) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget as HTMLFormElement);
-    const next = ensureMonth(data, year, month);
-    save({
-      ...next,
-      months: next.months.map((item) =>
-        item.year === year && item.month === month
-          ? {
-              ...item,
-              goals: SUBJECTS.map((name) => ({
-                subject: name,
-                targetHours: Number(form.get(`hours-${name}`) ?? 0),
-                note: String(form.get(`note-${name}`) ?? ""),
-              })),
-            }
-          : item,
-      ),
+  let pickedSubject: Subject = "行测";
+  let pickedModule = MODULES.行测[0];
+  let pickedMinutes = 40;
+  const moduleBox = document.querySelector<HTMLElement>("#module-chips")!;
+  const mark = (selector: string, value: string, attr: string) => {
+    document.querySelectorAll<HTMLButtonElement>(selector).forEach((button) => {
+      button.classList.toggle("primary", button.dataset[attr] === value);
     });
-    paint();
   };
+  const drawModules = () => {
+    moduleBox.innerHTML = MODULES[pickedSubject]
+      .map((item) => `<button type="button" class="btn" data-pick-module="${item}">${item}</button>`)
+      .join("");
+    moduleBox.querySelectorAll<HTMLButtonElement>("[data-pick-module]").forEach((button) => {
+      button.onclick = () => {
+        pickedModule = button.dataset.pickModule ?? pickedModule;
+        mark("[data-pick-module]", pickedModule, "pickModule");
+      };
+    });
+    mark("[data-pick-module]", pickedModule, "pickModule");
+  };
+  document.querySelectorAll<HTMLButtonElement>("[data-pick-subject]").forEach((button) => {
+    button.onclick = () => {
+      pickedSubject = button.dataset.pickSubject as Subject;
+      pickedModule = MODULES[pickedSubject][0];
+      mark("[data-pick-subject]", pickedSubject, "pickSubject");
+      drawModules();
+    };
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-pick-minutes]").forEach((button) => {
+    button.onclick = () => {
+      pickedMinutes = Number(button.dataset.pickMinutes);
+      mark("[data-pick-minutes]", String(pickedMinutes), "pickMinutes");
+    };
+  });
+  mark("[data-pick-subject]", pickedSubject, "pickSubject");
+  mark("[data-pick-minutes]", String(pickedMinutes), "pickMinutes");
+  drawModules();
+  document.querySelectorAll<HTMLButtonElement>("[data-hours]").forEach((button) => {
+    button.onclick = () => {
+      const name = button.dataset.subject as Subject;
+      const hours = Number(button.dataset.hours);
+      const next = ensureMonth(data, year, month);
+      save({
+        ...next,
+        months: next.months.map((item) =>
+          item.year === year && item.month === month
+            ? { ...item, goals: item.goals.map((goal) => (goal.subject === name ? { ...goal, targetHours: hours } : goal)) }
+            : item,
+        ),
+      });
+      paint();
+    };
+  });
   document.querySelector<HTMLButtonElement>("#split-week")!.onclick = () => {
     const next = ensureMonth(data, year, month);
     const plan = monthPlan(next, year, month);
@@ -624,21 +612,18 @@ function bindPlan(data: AppData, arg: string, extra: string): void {
     save({ ...next, tasks: [...next.tasks, ...created] });
     paint();
   };
-  document.querySelector<HTMLFormElement>("#task")!.onsubmit = (event) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget as HTMLFormElement);
-    const subjectName = String(form.get("subject")) as Subject;
+  document.querySelector<HTMLButtonElement>("#add-task")!.onclick = () => {
     save({
       ...ensureMonth(data, year, month),
       tasks: [
         ...data.tasks,
         {
           id: uid(),
-          date: String(form.get("date")),
-          subject: subjectName,
-          module: String(form.get("module") ?? MODULES[subjectName][0]),
-          title: String(form.get("title") ?? ""),
-          minutes: Number(form.get("minutes") ?? 40),
+          date: focus,
+          subject: pickedSubject,
+          module: pickedModule,
+          title: `${pickedModule}练习`,
+          minutes: pickedMinutes,
           done: false,
         },
       ],
@@ -666,28 +651,51 @@ function bindPlan(data: AppData, arg: string, extra: string): void {
 }
 
 function bindScores(data: AppData): void {
-  const subject = document.querySelector<HTMLSelectElement>("#score-subject")!;
-  const moduleSelect = document.querySelector<HTMLSelectElement>("#score-module")!;
-  subject.onchange = () => fillModules(moduleSelect, subject.value as Subject);
-  document.querySelector<HTMLFormElement>("#score")!.onsubmit = (event) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget as HTMLFormElement);
-    const subjectName = String(form.get("subject")) as Subject;
+  let kind: ScoreKind = "模考";
+  let subject: Subject = "行测";
+  let moduleName = MODULES.行测[0];
+  const moduleBox = document.querySelector<HTMLElement>("#score-module")!;
+  const mark = (selector: string, value: string, attr: string) => {
+    document.querySelectorAll<HTMLButtonElement>(selector).forEach((button) => {
+      button.classList.toggle("primary", button.dataset[attr] === value);
+    });
+  };
+  const drawModules = () => {
+    moduleBox.innerHTML = MODULES[subject]
+      .map((item) => `<button type="button" class="btn" data-score-module="${item}">${item}</button>`)
+      .join("");
+    moduleBox.querySelectorAll<HTMLButtonElement>("[data-score-module]").forEach((button) => {
+      button.onclick = () => {
+        moduleName = button.dataset.scoreModule ?? moduleName;
+        mark("[data-score-module]", moduleName, "scoreModule");
+      };
+    });
+    mark("[data-score-module]", moduleName, "scoreModule");
+  };
+  document.querySelectorAll<HTMLButtonElement>("[data-score-kind]").forEach((button) => {
+    button.onclick = () => {
+      kind = button.dataset.scoreKind as ScoreKind;
+      mark("[data-score-kind]", kind, "scoreKind");
+    };
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-score-subject]").forEach((button) => {
+    button.onclick = () => {
+      subject = button.dataset.scoreSubject as Subject;
+      moduleName = MODULES[subject][0];
+      mark("[data-score-subject]", subject, "scoreSubject");
+      drawModules();
+    };
+  });
+  mark("[data-score-kind]", kind, "scoreKind");
+  mark("[data-score-subject]", subject, "scoreSubject");
+  drawModules();
+  document.querySelector<HTMLButtonElement>("#save-score")!.onclick = () => {
+    const score = Number(document.querySelector<HTMLInputElement>("#score-value")!.value);
+    const full = Number(document.querySelector<HTMLInputElement>("#score-full")!.value || 100);
+    if (!Number.isFinite(score) || !Number.isFinite(full) || full <= 0) return;
     save({
       ...data,
-      scores: [
-        ...data.scores,
-        {
-          id: uid(),
-          date: String(form.get("date")),
-          kind: String(form.get("kind")) as ScoreKind,
-          subject: subjectName,
-          module: String(form.get("module") ?? ""),
-          score: Number(form.get("score")),
-          full: Number(form.get("full")),
-          minutes: Number(form.get("minutes") ?? 0),
-        },
-      ],
+      scores: [...data.scores, { id: uid(), date: isoDate(new Date()), kind, subject, module: moduleName, score, full, minutes: 0 }],
     });
     paint();
   };
@@ -697,10 +705,6 @@ function bindScores(data: AppData): void {
       paint();
     };
   });
-}
-
-function fillModules(select: HTMLSelectElement, subject: Subject): void {
-  select.innerHTML = MODULES[subject].map((item) => `<option>${item}</option>`).join("");
 }
 
 function download(filename: string, payload: unknown): void {
