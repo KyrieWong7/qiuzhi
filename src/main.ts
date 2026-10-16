@@ -41,7 +41,7 @@ function paint(): void {
   const [page, arg = "", extra = ""] = route().split("/");
   app!.innerHTML = `
     <header class="top">
-      <div class="brand">${bow()}泛体制求职</div>
+      <div class="brand">${bow()}RUO的求职系统</div>
       <nav class="nav">${pages
         .map(([id, label]) => `<button data-go="${id}" class="${page === id ? "active" : ""}">${label}</button>`)
         .join("")}</nav>
@@ -57,6 +57,13 @@ function paint(): void {
 
 function bow(): string {
   return `<svg class="bow" viewBox="0 0 22 16" aria-hidden="true"><path d="M11 8 C8 2 2 2 2 8 C2 14 8 14 11 8 C14 2 20 2 20 8 C20 14 14 14 11 8" fill="#f4a7c1"/><circle cx="11" cy="8" r="2" fill="#fff"/></svg>`;
+}
+
+function stickers(): string {
+  return `
+    <svg class="sticker star" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 2 L24 15 L38 16 L27 25 L31 38 L20 31 L9 38 L13 25 L2 16 L16 15 Z" fill="#f6d98b"/></svg>
+    <svg class="sticker face" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" fill="#fff" stroke="#f4a7c1" stroke-width="2"/><circle cx="14" cy="18" r="2" fill="#5c4652"/><circle cx="26" cy="18" r="2" fill="#5c4652"/><path d="M14 25 Q20 30 26 25" fill="none" stroke="#e07a8a" stroke-width="2"/></svg>
+    <svg class="sticker heart" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 28 C6 18 4 10 10 8 C14 6 16 10 16 10 C16 10 18 6 22 8 C28 10 26 18 16 28" fill="#f4a7c1"/></svg>`;
 }
 
 function body(data: AppData, page: string, arg: string, extra: string): string {
@@ -75,8 +82,9 @@ function homePage(data: AppData): string {
   const weekTasks = data.tasks.filter((task) => days.includes(task.date));
   const latest = [...data.scores].sort((a, b) => a.date.localeCompare(b.date)).at(-1);
   const photos = data.resume.filter((item) => item.image);
-  const hello = data.profile.name ? `${data.profile.name}，今天也要加油` : "今天也要加油";
+  const hello = data.profile.name ? `${data.profile.name}，今天也要加油！Offer来来来` : "今天也要加油！Offer来来来";
   return `
+    ${stickers()}
     <h1>${bow()} ${esc(hello)}</h1>
     <p class="sub">${esc(data.profile.gradSchool)} ${esc(data.profile.gradMajor)} · ${esc(data.profile.gradYear)}届</p>
     <div class="home-grid">
@@ -135,7 +143,7 @@ function profilePage(data: AppData): string {
       ${field("hukou", "户籍", profile.hukou)}
       ${field("english", "英语", profile.english)}
       ${field("cities", "目标城市", profile.cities)}
-      <label>目标通道
+      <label>求职方向
         <span class="checks">${TRACKS.map(
           (track) =>
             `<label><input type="checkbox" name="track" value="${track}" ${profile.tracks.includes(track) ? "checked" : ""}/> ${track}</label>`,

@@ -7,7 +7,7 @@ export const MODULES: Record<Subject, string[]> = {
   面试: ["综合分析", "组织计划", "应急应变", "人际关系", "岗位匹配"],
 };
 
-export const TRACKS = ["国考", "省考", "事业编", "选调"] as const;
+export const TRACKS = ["国考", "省考", "事业编", "选调", "国央企"] as const;
 export const RESUME_KINDS = ["教育", "实习", "奖项", "技能"] as const;
 export const IDENTITIES = ["应届公务员", "普通选调", "文职人员", "事业编制", "服务基层"] as const;
 export const EVENT_TYPES = ["报名", "缴费", "笔试", "面试"] as const;

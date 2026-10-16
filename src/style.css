@@ -39,7 +39,11 @@ button { cursor: pointer; }
 }
 .nav button.active, .btn.primary { background: var(--pink); color: white; border-color: var(--pink); }
 .btn.danger { color: var(--red); }
-.wrap { padding: 8px 28px 48px; max-width: 1100px; }
+.wrap { position: relative; padding: 8px 28px 48px; max-width: 1100px; }
+.sticker { position: absolute; pointer-events: none; }
+.sticker.star { top: 8px; right: 36px; width: 42px; }
+.sticker.face { top: 72px; right: 18px; width: 36px; }
+.sticker.heart { bottom: 24px; left: 12px; width: 28px; }
 .card {
   background: var(--card);
   border: 1px solid var(--line);

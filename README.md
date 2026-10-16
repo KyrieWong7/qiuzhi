@@ -1,4 +1,4 @@
-# 泛体制求职
+# RUO的求职系统
 
 打开即可使用：https://kyriewong7.github.io/qiuzhi/
 
