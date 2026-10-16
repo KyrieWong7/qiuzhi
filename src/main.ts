@@ -28,9 +28,11 @@ const pages = [
   ["profile", "资料"],
   ["timeline", "时间线"],
   ["plan", "计划"],
-  ["scores", "记分"],
-  ["board", "学习"],
+  ["study", "学习"],
 ] as const;
+
+const EXAM_NAMES = ["国考", "湖北省考", "湖北普通选调", "湖北事业编", "武汉事业编", "军队文职"] as const;
+const EXAM_PLACES = ["考点在武汉", "地点在武汉", "主考区在武汉", "湖北考区在武汉", "考点含武汉"] as const;
 
 function route(): string {
   return location.hash.replace("#", "") || "home";
@@ -39,11 +41,12 @@ function route(): string {
 function paint(): void {
   const data = load();
   const [page, arg = "", extra = ""] = route().split("/");
+  const active = page === "scores" || page === "board" ? "study" : page;
   app!.innerHTML = `
     <header class="top">
       <div class="brand">${bow()}RUO的求职系统</div>
       <nav class="nav">${pages
-        .map(([id, label]) => `<button data-go="${id}" class="${page === id ? "active" : ""}">${label}</button>`)
+        .map(([id, label]) => `<button data-go="${id}" class="${active === id ? "active" : ""}">${label}</button>`)
         .join("")}</nav>
     </header>
     <main class="wrap">${body(data, page, arg, extra)}</main>`;
@@ -63,8 +66,7 @@ function body(data: AppData, page: string, arg: string, extra: string): string {
   if (page === "home") return homePage(data);
   if (page === "timeline") return timelinePage(data);
   if (page === "plan") return planPage(data, arg, extra);
-  if (page === "scores") return scorePage(data);
-  if (page === "board") return boardPage(data);
+  if (page === "study" || page === "scores" || page === "board") return studyPage(data);
   return profilePage(data);
 }
 
@@ -103,7 +105,7 @@ function homePage(data: AppData): string {
             ? `<div class="stat">${latest.score}/${latest.full}</div><p class="muted">${esc(latest.date)} ${esc(latest.subject)} ${esc(latest.module)} ${esc(latest.kind)}</p>${lineChart([latest.score / latest.full], [latest.date.slice(5)])}`
             : `<p class="muted">还没有分数。</p>`
         }
-        <button class="btn" data-go="board">看学习面板</button>
+        <button class="btn" data-go="study">看学习</button>
       </section>
       <section class="card">
         <h2>奖项和证明</h2>
@@ -173,41 +175,52 @@ function profilePage(data: AppData): string {
     </section>`;
 }
 
+function chips(items: readonly string[], attr: string): string {
+  return `<div class="chips">${items.map((item) => `<button type="button" class="btn" data-${attr}="${esc(item)}">${esc(item)}</button>`).join("")}</div>`;
+}
+
 function timelinePage(data: AppData): string {
-  const options = (list: readonly string[], selected = "") =>
-    list.map((item) => `<option ${item === selected ? "selected" : ""}>${item}</option>`).join("");
+  const today = isoDate(new Date());
+  const names = [...new Set<string>([...EXAM_NAMES, ...data.events.map((event) => event.name)])];
+  const places = [...new Set<string>([...EXAM_PLACES, ...data.events.map((event) => event.place)])];
+  const rows = [...data.events].sort((a, b) => a.start.localeCompare(b.start));
   return `
-    <h1>岗位时间线</h1>
-    <p class="sub">只放你要考的节点。条的长短是天数，笔试为红色，对标去年为虚线。</p>
-    <div class="card">${timelineSvg(data.events)}</div>
-    <form id="event" class="card grid">
-      <label>考试<input name="name" required placeholder="国考"/></label>
-      <label>身份<select name="identity">${options(IDENTITIES)}</select></label>
-      <label>地点或考点<input name="place" placeholder="考点在武汉"/></label>
-      <label>类型<select name="type">${options(EVENT_TYPES)}</select></label>
-      <label>状态<select name="status">${options(EVENT_STATUSES)}</select></label>
-      <label>开始<input name="start" type="date" required/></label>
-      <label>结束<input name="end" type="date" required/></label>
-      <div class="row">
-        <button class="btn primary" type="submit">添加节点</button>
-        <button class="btn" type="button" id="export-timeline">导出时间线</button>
-        <button class="btn" type="button" id="import-timeline">导入时间线</button>
-        <input id="timeline-file" type="file" accept="application/json" hidden/>
-      </div>
-      <p id="timeline-msg" class="error"></p>
-    </form>
-    <table>
-      <thead><tr><th>考试</th><th>身份</th><th>地点</th><th>类型</th><th>日期</th><th>状态</th><th></th></tr></thead>
-      <tbody>${data.events
-        .map(
-          (event) => `<tr>
-            <td>${esc(event.name)}</td><td>${esc(event.identity)}</td><td>${esc(event.place)}</td>
-            <td>${esc(event.type)}</td><td>${esc(event.start)} 至 ${esc(event.end)}</td><td>${esc(event.status)}</td>
-            <td><button class="btn danger" data-del-event="${event.id}">删除</button></td>
-          </tr>`,
-        )
-        .join("")}</tbody>
-    </table>`;
+    <div class="row">
+      <h1>时间线</h1>
+      <button class="btn" id="export-timeline" type="button">导出</button>
+      <button class="btn" id="import-timeline" type="button">导入</button>
+      <input id="timeline-file" type="file" accept="application/json" hidden/>
+    </div>
+    <p class="sub">条的长短是天数。实心是已公布，虚线是对标去年，红色是笔试和面试。</p>
+    <p id="timeline-msg" class="error"></p>
+    <div class="split">
+      <section class="card">${timelineSvg(data.events)}</section>
+      <aside class="card">
+        <h2>加一个节点</h2>
+        ${chips(names, "exam-name")}
+        <label>其他考试<input id="event-name" placeholder="不在上面就写在这里"/></label>
+        ${chips(IDENTITIES, "exam-identity")}
+        ${chips(EVENT_TYPES, "exam-type")}
+        ${chips(EVENT_STATUSES, "exam-status")}
+        ${chips(places, "exam-place")}
+        <label>其他地点<input id="event-place" placeholder="不在上面就写在这里"/></label>
+        <div class="row">
+          <label>开始<input id="event-start" type="date" value="${today}"/></label>
+          <label>结束<input id="event-end" type="date" value="${today}"/></label>
+        </div>
+        <button class="btn primary" type="button" id="add-event">加到时间线</button>
+        <h2>已有节点</h2>
+        ${
+          rows.length
+            ? rows
+                .map(
+                  (event) => `<div class="score-line"><span>${esc(event.start.slice(5))} ${esc(event.name)} ${esc(event.type)} ${esc(event.status)}</span><button class="btn danger" data-del-event="${event.id}">删除</button></div>`,
+                )
+                .join("")
+            : `<p class="muted">还没有考试节点。</p>`
+        }
+      </aside>
+    </div>`;
 }
 
 function planPage(data: AppData, arg: string, extra: string): string {
@@ -294,25 +307,49 @@ function rate(tasks: AppData["tasks"]): string {
   return `${done}/${tasks.length}`;
 }
 
-function scorePage(data: AppData): string {
+function studyPage(data: AppData): string {
   const now = new Date();
   const monthScores = data.scores.filter((item) => inMonth(item.date, now.getFullYear(), now.getMonth() + 1));
   const averages = SUBJECTS.map((subject) => {
     const rows = monthScores.filter((item) => item.subject === subject && item.full > 0);
     const average = rows.length ? rows.reduce((sum, item) => sum + item.score / item.full, 0) / rows.length : 0;
     const latest = [...data.scores].filter((item) => item.subject === subject).sort((a, b) => b.date.localeCompare(a.date))[0];
-    return { subject, average, latest };
+    const series = data.scores.filter((item) => item.subject === subject).sort((a, b) => a.date.localeCompare(b.date));
+    return { subject, average, latest, series };
   });
+  const tasks = data.tasks.filter((task) => inMonth(task.date, now.getFullYear(), now.getMonth() + 1));
+  const done = tasks.filter((task) => task.done).length;
+  const weak = weakness(data);
   return `
-    <h1>模考和练习</h1>
+    <h1>学习</h1>
     <p class="sub">分数只留在这台浏览器，不会写进导出的计划。</p>
-    <div class="panels">${averages
-      .map(
-        (item) => `<section class="card"><h2>${item.subject}</h2><div class="stat">${item.latest ? `${item.latest.score}/${item.latest.full}` : "—"}</div><p class="muted">最近一次 · 本月平均 ${item.average ? Math.round(item.average * 100) + "%" : "还没有"}</p></section>`,
-      )
-      .join("")}</div>
+    <div class="quad">
+      <section class="card"><div class="stat">${tasks.length ? Math.round((done / tasks.length) * 100) : 0}%</div><p class="muted">本月完成 ${done}/${tasks.length}</p></section>
+      ${averages
+        .map(
+          (item) => `<section class="card"><h2>${item.subject}</h2><div class="stat">${item.latest ? `${item.latest.score}/${item.latest.full}` : "—"}</div><p class="muted">最近一次 · 本月平均 ${item.average ? Math.round(item.average * 100) + "%" : "还没有"}</p></section>`,
+        )
+        .join("")}
+    </div>
     <div class="split">
       <section class="card">
+        ${averages
+          .map((item) =>
+            item.series.length
+              ? `<h2>${item.subject}</h2>${lineChart(
+                  item.series.map((row) => row.score / row.full),
+                  item.series.map((row) => row.date.slice(5)),
+                  120,
+                )}`
+              : "",
+          )
+          .join("")}
+        <h2>模块得分率</h2>
+        ${
+          weak.length
+            ? barChart(weak)
+            : `<p class="muted">每个模块至少记一次分数后，这里会标出较低的两项。</p>`
+        }
         <h2>分数</h2>
         ${
           data.scores.length
@@ -339,53 +376,18 @@ function scorePage(data: AppData): string {
     </div>`;
 }
 
-function boardPage(data: AppData): string {
-  const bySubject = SUBJECTS.map((subject) => {
-    const rows = data.scores.filter((item) => item.subject === subject).sort((a, b) => a.date.localeCompare(b.date));
-    return { subject, rows };
-  });
-  const weak = weakness(data);
-  const now = new Date();
-  const tasks = data.tasks.filter((task) => inMonth(task.date, now.getFullYear(), now.getMonth() + 1));
-  const done = tasks.filter((task) => task.done).length;
-  return `
-    <h1>学习效果</h1>
-    <div class="panels">
-      <section class="card"><div class="stat">${tasks.length ? Math.round((done / tasks.length) * 100) : 0}%</div><div class="muted">本月完成 ${done}/${tasks.length}</div></section>
-      ${bySubject
-        .map(
-          (group) => `<section class="card"><h2>${group.subject}</h2>${
-            group.rows.length ? lineChart(group.rows.map((item) => item.score / item.full), group.rows.map((item) => item.date.slice(5))) : `<p class="muted">还没有分数。</p>`
-          }</section>`,
-        )
-        .join("")}
-    </div>
-    <section class="card">
-      <h2>模块得分率</h2>
-      ${
-        weak.length
-          ? `<ol>${weak
-              .slice(0, 2)
-              .map((item) => `<li>${esc(item.subject)} / ${esc(item.module)}：最近平均 ${Math.round(item.ratio * 100)}%</li>`)
-              .join("")}</ol>${barChart(weak)}`
-          : `<p class="muted">每个模块至少记一次分数后，这里会标出较低的两项。</p>`
-      }
-    </section>`;
-}
-
-function lineChart(values: number[], labels: string[]): string {
+function lineChart(values: number[], labels: string[], h = 160): string {
   const w = 520;
-  const h = 160;
   const padX = 28;
   const coords = values.map((value, index) => {
     const x = padX + (index * (w - padX * 2)) / Math.max(values.length - 1, 1);
-    const y = 20 + (1 - value) * 110;
+    const y = 16 + (1 - value) * (h - 48);
     return `${x},${y}`;
   });
   const dots = coords
     .map((point, index) => {
       const [x, y] = point.split(",");
-      return `<circle cx="${x}" cy="${y}" r="3" fill="#1e3a5f"/><text x="${x}" y="152" text-anchor="middle" font-size="10" fill="#5c6b7a">${esc(labels[index] ?? "")}</text>`;
+      return `<circle cx="${x}" cy="${y}" r="3" fill="#1e3a5f"/><text x="${x}" y="${h - 8}" text-anchor="middle" font-size="10" fill="#5c6b7a">${esc(labels[index] ?? "")}</text>`;
     })
     .join("");
   return `<svg viewBox="0 0 ${w} ${h}" class="chart" role="img" aria-label="分数折线"><polyline fill="none" stroke="#1e3a5f" stroke-width="2" points="${coords.join(" ")}"/>${dots}</svg>`;
@@ -429,7 +431,7 @@ function bind(data: AppData, page: string, arg: string, extra: string): void {
   if (page === "profile") bindProfile(data);
   if (page === "timeline") bindTimeline(data);
   if (page === "plan") bindPlan(data, arg, extra);
-  if (page === "scores") bindScores(data);
+  if (page === "study" || page === "scores" || page === "board") bindScores(data);
 }
 
 function bindProfile(data: AppData): void {
@@ -493,22 +495,50 @@ function bindProfile(data: AppData): void {
 }
 
 function bindTimeline(data: AppData): void {
-  document.querySelector<HTMLFormElement>("#event")!.onsubmit = (event) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget as HTMLFormElement);
+  let name: string = EXAM_NAMES[0];
+  let identity: string = IDENTITIES[0];
+  let type: EventType = EVENT_TYPES[0];
+  let status: EventStatus = EVENT_STATUSES[0];
+  let place: string = EXAM_PLACES[0];
+  const mark = (selector: string, value: string, attr: string) => {
+    document.querySelectorAll<HTMLButtonElement>(selector).forEach((button) => {
+      button.classList.toggle("primary", button.dataset[attr] === value);
+    });
+  };
+  const pick = (selector: string, attr: string, apply: (value: string) => void, current: string) => {
+    document.querySelectorAll<HTMLButtonElement>(selector).forEach((button) => {
+      button.onclick = () => {
+        const value = button.dataset[attr] ?? current;
+        apply(value);
+        mark(selector, value, attr);
+      };
+    });
+    mark(selector, current, attr);
+  };
+  pick("[data-exam-name]", "examName", (value) => (name = value), name);
+  pick("[data-exam-identity]", "examIdentity", (value) => (identity = value), identity);
+  pick("[data-exam-type]", "examType", (value) => (type = value as EventType), type);
+  pick("[data-exam-status]", "examStatus", (value) => (status = value as EventStatus), status);
+  pick("[data-exam-place]", "examPlace", (value) => (place = value), place);
+  document.querySelector<HTMLButtonElement>("#add-event")!.onclick = () => {
+    const customName = document.querySelector<HTMLInputElement>("#event-name")!.value.trim();
+    const customPlace = document.querySelector<HTMLInputElement>("#event-place")!.value.trim();
+    const start = document.querySelector<HTMLInputElement>("#event-start")!.value;
+    const end = document.querySelector<HTMLInputElement>("#event-end")!.value || start;
+    if (!start) return;
     save({
       ...data,
       events: [
         ...data.events,
         {
           id: uid(),
-          name: String(form.get("name") ?? ""),
-          identity: String(form.get("identity") ?? ""),
-          place: String(form.get("place") ?? ""),
-          type: String(form.get("type")) as EventType,
-          status: String(form.get("status")) as EventStatus,
-          start: String(form.get("start") ?? ""),
-          end: String(form.get("end") ?? ""),
+          name: customName || name,
+          identity,
+          place: customPlace || place,
+          type,
+          status,
+          start,
+          end: end < start ? start : end,
         },
       ],
     });

@@ -104,7 +104,9 @@ th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line
 .gallery { display: flex; gap: 8px; flex-wrap: wrap; }
 .gallery img, .thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 14px; border: 1px solid var(--line); }
 .panels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.quad { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+.quad .stat { font-size: 22px; }
 @media (max-width: 640px) {
-  .grid, .week, .home-grid, .panels, .split { grid-template-columns: 1fr; }
+  .grid, .week, .home-grid, .panels, .quad, .split { grid-template-columns: 1fr; }
   .top, .wrap { padding-left: 16px; padding-right: 16px; }
 }
