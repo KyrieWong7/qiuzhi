@@ -39,6 +39,7 @@ export type ResumeItem = {
   title: string;
   detail: string;
   time: string;
+  image?: string;
 };
 
 export type TimelineEvent = {
